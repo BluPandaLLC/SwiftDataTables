@@ -11,7 +11,7 @@ import UIKit
 //public let SwiftDataTableAutomaticColumnWidth: CGFloat = CGFloat.greatestFiniteMagnitude
 
 /// This is an optional data source, you can also set static data in the initialiser of the `SwiftDataTable` class so you can avoid conforming to the data source. But for those with more dynamic content, use this protocol.
-public protocol SwiftDataTableDataSource: class {
+public protocol SwiftDataTableDataSource: AnyObject {
     
     /// The number of columns to display
     ///
@@ -32,7 +32,7 @@ public protocol SwiftDataTableDataSource: class {
     ///   - dataTable: SwiftDataTable
     ///   - index: the index position of the row wishing to be displayed
     /// - Returns: return an array of the DataTableValueType type so the row can be processed and displayed.
-    func dataTable(_ dataTable: SwiftDataTable, dataForRowAt index: NSInteger) -> [DataTableValueType]
+    func dataTable(_ dataTable: SwiftDataTable, dataForRowAt index: NSInteger) -> [DataTableValue]
     
     /// The header title for the column position to be displayed
     ///
@@ -44,7 +44,7 @@ public protocol SwiftDataTableDataSource: class {
 }
 
 /// An optional delegate for further customisation. Default values will be used retrieved from the SwiftDataTableConfiguration file. This will can be overridden and passed into the SwiftDataTable constructor incase you wish not to use the delegate.
-@objc public protocol SwiftDataTableDelegate: class {
+@objc public protocol SwiftDataTableDelegate: AnyObject {
     
     /// Fired when a cell is selected.
     ///

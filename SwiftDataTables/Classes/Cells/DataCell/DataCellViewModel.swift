@@ -8,24 +8,27 @@
 
 import Foundation
 import UIKit
+import os.log
 
-open class DataCellViewModel: VirtualPositionTrackable, CollectionViewCellRepresentable {
+/// One of these per DataCell. Initialize with DataTableValueType and reuseIdentifier
+open class DataCellViewModel: CollectionViewCellRepresentable {
     
     //MARK: - Public Properties
-    var xPositionRunningTotal: CGFloat?  = nil
-    var yPositionRunningTotal: CGFloat?  = nil
-    var virtualHeight: CGFloat = 0
     public let data: DataTableValueType
+    /// identifies what cell type to dequeue
+    public let reuseIdentifer: String
     var highlighted: Bool = false
-    //
+
     public var stringRepresentation: String {
         return self.data.stringRepresentation
     }
-    //MARK: - Lifecycle
-    init(data: DataTableValueType){
-        self.data = data
-    }
     
+    //MARK: - Lifecycle
+    init(data: DataTableValueType, reuseIdentifier id: String){
+        self.data = data
+        self.reuseIdentifer = id
+    }
+
     static func registerCell(collectionView: UICollectionView) {
         let identifier = String(describing: DataCell.self)
         collectionView.register(DataCell.self, forCellWithReuseIdentifier: identifier)
@@ -34,10 +37,11 @@ open class DataCellViewModel: VirtualPositionTrackable, CollectionViewCellRepres
     }
     
     func dequeueCell(collectionView: UICollectionView, indexPath: IndexPath) -> UICollectionViewCell {
-        let identifier = String(describing: DataCell.self)
-        guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: identifier, for: indexPath) as? DataCell else {
+//        let identifier = String(describing: DataCell.self)
+        guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: reuseIdentifer, for: indexPath) as? DataCell else {
             fatalError("error in collection view cell")
         }
+        
         cell.configure(self)
         return cell
     }

@@ -31,6 +31,7 @@ public class DataTableFixedColumnType: NSObject {
 }
 
 extension DataTableFixedColumnType {
+    /// Not the UIKit hitTest. Return side of row header cell if the cell is within the bounds of the fixed column index
     public func hitTest(_ columnIndex: Int, totalTableColumnCount: Int) -> DataTableFixedColumnSideType? {
         if columnIndex < leftColumns {
             return .left

@@ -7,11 +7,12 @@
 //
 
 import Foundation
-
+import UIKit
 
 //struct DataTableColumnModel {
 //    
 //}
+/// DataTableContent (data), header/footer titles and some formatting info
 public struct DataStructureModel {
     
     //MARK: - Private Properties
@@ -19,8 +20,15 @@ public struct DataStructureModel {
     var columnCount: Int {
         return headerTitles.count// ?? 0
     }
+    
+    var rowCount: Int {
+        return data.count
+    }
+    
     //MARK: - Public Properties
+    /// [[DataTableValueType]] (data/reuseIdentifier)
     var data = DataTableContent()
+    var columnWidths = [CGFloat]()
     var headerTitles = [String]()
     var footerTitles = [String]()
     var shouldFootersShowSortingElement: Bool = false
@@ -29,26 +37,25 @@ public struct DataStructureModel {
     
     //MARK: - Lifecycle
     init() {
-        self.init(data: DataTableContent(), headerTitles: [String]())
+        self.init(data: DataTableContent(), columnWidths: [CGFloat](), headerTitles: [String]())
     }
     
-    init(
-        data: DataTableContent, headerTitles: [String],
-        shouldMakeTitlesFitInColumn: Bool = true,
-        shouldDisplayFooterHeaders: Bool = true
-        //sortableColumns: [Int] // This will map onto which column can be sortable
-        ) {
-        
-        
+    init(data: DataTableContent,
+         columnWidths: [CGFloat],
+         headerTitles: [String],
+         shouldMakeTitlesFitInColumn: Bool = true,
+         shouldDisplayFooterHeaders: Bool = true) {
+        self.columnWidths = columnWidths
         self.headerTitles = headerTitles
+        
         let unfilteredData = data
         let sanitisedData = unfilteredData.filter({ currentRowData in
             //Trim column count for current row to the number of headers present
             let rowWithPreferredColumnCount = Array(currentRowData.prefix(upTo: self.columnCount))
             return rowWithPreferredColumnCount.count == self.columnCount
         })
+        self.data = sanitisedData
         
-        self.data = sanitisedData//sanitisedData
         self.shouldFitTitles = shouldMakeTitlesFitInColumn
         self.columnAverageContentLength = self.processColumnDataAverages(data: self.data)
         
@@ -62,8 +69,7 @@ public struct DataStructureModel {
         return Array(0..<self.headerTitles.count).reduce(0){ $0 + self.averageDataLengthForColumn(index: $1) }
     }
     
-    public func averageDataLengthForColumn(
-        index: Int) -> Float {
+    public func averageDataLengthForColumn(index: Int) -> Float {
         if self.shouldFitTitles {
             return max(self.columnAverageContentLength[index], Float(self.headerTitles[index].count))
         }
@@ -71,19 +77,20 @@ public struct DataStructureModel {
     }
 
     //extension DataStructureModel {
-    //Finds the average content length in each column
+    /// Finds the average content length in each column
     private func processColumnDataAverages(data: DataTableContent) -> [Float] {
         var columnContentAverages = [Float]()
+        
         for column in Array(0..<self.headerTitles.count) {
-            let averageForCurrentColumn = Array(0..<data.count).reduce(0){
-                let dataType: DataTableValueType = data[$1][column]
-              return $0 + Int(dataType.stringRepresentation.widthOfString(usingFont: UIFont.systemFont(ofSize: UIFont.labelFontSize)).rounded(.up))
+            let averageForCurrentColumn = Array(0..<data.count).reduce(0) {
+                let dataValue: DataTableValue = data[$1][column]
+                return $0 + Int(dataValue.widthOfString.rounded(.up))
+                return $0 + Int(dataValue.dataTableValue.stringRepresentation.widthOfString(usingFont: UIFont.systemFont(ofSize: UIFont.labelFontSize)).rounded(.up))
             }
             columnContentAverages.append((data.count == 0) ? 1 : Float(averageForCurrentColumn) / Float(data.count))
         }
         return columnContentAverages
     }
-    
     
     public func columnHeaderSortType(for index: Int) -> DataTableSortType {
         guard self.headerTitles[safe: index] != nil else {

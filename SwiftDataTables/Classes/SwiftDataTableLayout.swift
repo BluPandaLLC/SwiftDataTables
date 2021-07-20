@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import os.log
 
 class SwiftDataTableLayout: UICollectionViewFlowLayout {
     
@@ -19,13 +20,11 @@ class SwiftDataTableLayout: UICollectionViewFlowLayout {
     
     private var cache = [UICollectionViewLayoutAttributes]()
     private var filteredCache = [UICollectionViewLayoutAttributes]()
-//    private var filteredCache = [UICollectionViewLayoutAttributes]()
     
     //MARK: - Lifecycle
     init(dataTable: SwiftDataTable){
         self.dataTable = dataTable
         super.init()
-//        self.collectionView?.isPrefetchingEnabled = false;
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -43,7 +42,7 @@ class SwiftDataTableLayout: UICollectionViewFlowLayout {
             return
         }
         let date = Date()
-        self.dataTable.calculateColumnWidths()
+//        self.dataTable.calculateColumnWidths()
         var xOffsets = [CGFloat]()
         var yOffsets = [CGFloat]()
         
@@ -65,7 +64,6 @@ class SwiftDataTableLayout: UICollectionViewFlowLayout {
             yOffsets.append(currentRowYOffset)
         }
         
-        
         //Item equals the current item in the row
         for row in Array(0..<self.dataTable.numberOfRows()){
             for item in Array(0..<self.dataTable.numberOfColumns()) {
@@ -76,7 +74,6 @@ class SwiftDataTableLayout: UICollectionViewFlowLayout {
                 let height = self.dataTable.heightForRow(index: row)
                 
                 let frame = CGRect(x: xOffsets[item], y: yOffsets[row], width: width, height: height)
-//                let insetFrame = CGRectInset(frame, cellPadding, cellPadding)
                 let attributes = UICollectionViewLayoutAttributes(forCellWith: indexPath)
                 attributes.frame = frame//insetFrame
                 cache.append(attributes)
@@ -114,9 +111,9 @@ class SwiftDataTableLayout: UICollectionViewFlowLayout {
     override func layoutAttributesForElements(in rect: CGRect) -> [UICollectionViewLayoutAttributes]? {
 
         //Item Cells
-        let minY = rect.minY-rect.height
+        let minY = rect.minY - rect.height
         var attributes = [UICollectionViewLayoutAttributes]()
-//
+
         let firstMatchIndex = binarySearchAttributes(self.cache, value: minY)
         // Left side
         for att in self.cache[..<firstMatchIndex].reversed() {
@@ -138,7 +135,7 @@ class SwiftDataTableLayout: UICollectionViewFlowLayout {
 //            }
 //        }
 
-        //MARK: Column Headers
+        // MARK: Column Headers
         for i in 0..<self.dataTable.numberOfHeaderColumns() {
             let headerIndexPath = IndexPath(index: i)
             if let headerAttributes = self.layoutAttributesForSupplementaryView(ofKind: SwiftDataTable.SupplementaryViewType.columnHeader.rawValue, at: headerIndexPath){
@@ -146,7 +143,7 @@ class SwiftDataTableLayout: UICollectionViewFlowLayout {
             }
         }
         
-        //MARK: Column Footers
+        // MARK: Column Footers
         if self.dataTable.shouldShowFooterSection() {
             for i in 0..<self.dataTable.numberOfFooterColumns() {
                 let footerIndexPath = IndexPath(index: i)
@@ -176,7 +173,8 @@ class SwiftDataTableLayout: UICollectionViewFlowLayout {
     }
     
     override var flipsHorizontallyInOppositeLayoutDirection: Bool {
-        return dataTable.shouldSupportRightToLeftInterfaceDirection() ? UIApplication.shared.userInterfaceLayoutDirection == .rightToLeft : false
+        return false
+//        return dataTable.shouldSupportRightToLeftInterfaceDirection() ? UIApplication.shared.userInterfaceLayoutDirection == .rightToLeft : false
     }
 }
 
@@ -184,21 +182,30 @@ class SwiftDataTableLayout: UICollectionViewFlowLayout {
 extension SwiftDataTableLayout {
     func adjustAttributesPosition(_ attributes: UICollectionViewLayoutAttributes?, at columnIndex: Int, zIndexPosition: Int) -> UICollectionViewLayoutAttributes? {
         guard let attributes = attributes else { return nil }
+        
+        // if there are no row column headers, don't change cell's attributes
         guard let fixedColumns = self.dataTable.fixedColumns() else {
             return attributes
         }
+        
+        // if cell isn't a row column header, don't change attributes
         guard let fixedColumnSide = fixedColumns.hitTest(columnIndex, totalTableColumnCount: dataTable.numberOfColumns()) else {
             return attributes
         }
+        
+        // calculate offset for row header cells
         var xOffset: CGFloat = self.dataTable.collectionView.contentOffset.x
+        // sum x offset for all row header cells
         switch fixedColumnSide {
-        case .left:
-            let x = Array(0..<columnIndex).reduce(self.dataTable.widthForRowHeader()){$0 + self.dataTable.widthForColumn(index: $1)}
-            xOffset = xOffset + x
-        case .right:
-            let x = Array(columnIndex..<dataTable.numberOfColumns()).reduce(self.dataTable.widthForRowHeader()){$0 + self.dataTable.widthForColumn(index: $1)}
-            xOffset = self.dataTable.frame.width + xOffset - x
+            case .left:
+                let x = Array(0..<columnIndex).reduce(self.dataTable.widthForRowHeader())
+                    { $0 + self.dataTable.widthForColumn(index: $1) }
+                xOffset = xOffset + x
+            case .right:
+                let x = Array(columnIndex..<dataTable.numberOfColumns()).reduce(self.dataTable.widthForRowHeader()){$0 + self.dataTable.widthForColumn(index: $1)}
+                xOffset = self.dataTable.frame.width + xOffset - x
         }
+        
         attributes.frame.origin.x = xOffset
         attributes.zIndex = zIndexPosition
         return attributes
@@ -226,28 +233,20 @@ extension SwiftDataTableLayout {
         )
         return attributes
     }
-//    func adjustSupplementaryView(attributes: UICollectionViewLayoutAttributes?, at columnPosition: Int) -> UICollectionViewLayoutAttributes? {
-//        guard let attributes = attributes else { return nil }
-//        if columnPosition == 0 || columnPosition == 1 {
-//            let x = Array(0..<columnPosition).reduce(self.dataTable.widthForRowHeader()){$0 + self.dataTable.widthForColumn(index: $1)}
-////            let columnWidth = dataTable.widthForColumn(index: columnPosition)
-//            let xOffset = dataTable.collectionView.contentOffset.x + x
-//            attributes.frame.origin.x = xOffset
-//            attributes.zIndex = 100
-//        }
-//        return attributes
-//    }
+
     override func layoutAttributesForSupplementaryView(ofKind elementKind: String, at indexPath: IndexPath) -> UICollectionViewLayoutAttributes? {
         let kind = SwiftDataTable.SupplementaryViewType(kind: elementKind)
         switch kind {
-        case .searchHeader: return self.layoutAttributesForHeaderView(at: indexPath)
+        case .searchHeader:
+            return self.layoutAttributesForHeaderView(at: indexPath)
         case .columnHeader:
             let attributes = layoutAttributesForColumnHeaderView(at: indexPath)
-            return adjustAttributesPosition(attributes, at: indexPath[0], zIndexPosition: 100+indexPath[0])
+            return adjustAttributesPosition(attributes, at: indexPath[0], zIndexPosition: 100 + indexPath[0])
         case .footerHeader:
             let attributes = layoutAttributesForColumnFooterView(at: indexPath)
-            return adjustAttributesPosition(attributes, at: indexPath[0], zIndexPosition: 100+indexPath[0])
-        case .paginationHeader:  return self.layoutAttributesForPaginationView(at: indexPath)
+            return adjustAttributesPosition(attributes, at: indexPath[0], zIndexPosition: 100 + indexPath[0])
+        case .paginationHeader:
+            return self.layoutAttributesForPaginationView(at: indexPath)
         }
     }
     
@@ -256,7 +255,8 @@ extension SwiftDataTableLayout {
         let x: CGFloat = self.dataTable.collectionView.contentOffset.x
         let y: CGFloat = 0
         let width = self.dataTable.collectionView.bounds.width
-        let height: CGFloat = 0//self.dataTable.heightForSearchView()
+        //self.dataTable.heightForSearchView()
+        let height: CGFloat = 0
         
         attribute.frame = CGRect(
             x: max(0, x),
@@ -266,7 +266,7 @@ extension SwiftDataTableLayout {
         )
         attribute.zIndex = 5
         
-        if self.dataTable.shouldSearchHeaderFloat(){
+        if self.dataTable.shouldSearchHeaderFloat() {
             let yOffsetTopView: CGFloat = self.dataTable.collectionView.contentOffset.y
             attribute.frame.origin.y = yOffsetTopView
             attribute.zIndex += 1
@@ -278,35 +278,28 @@ extension SwiftDataTableLayout {
         let attribute = UICollectionViewLayoutAttributes(forSupplementaryViewOfKind: SwiftDataTable.SupplementaryViewType.columnHeader.rawValue, with: indexPath)
         //Because the widths can change between columns we need to get a running total for the x position so far up
         //until the currnt column header.
-        let x = Array(0..<indexPath.index).reduce(self.dataTable.widthForRowHeader()){$0 + self.dataTable.widthForColumn(index: $1)}
+        let x = Array(0..<indexPath.index)
+            .reduce(self.dataTable.widthForRowHeader()) { $0 + self.dataTable.widthForColumn(index: $1) }
+        
         let y: CGFloat = self.collectionView!.contentOffset.y//self.dataTable.heightForSearchView() /*self.dataTable.heightForPaginationView()*/
         let width = self.dataTable.widthForColumn(index: indexPath.index)
         let height = self.dataTable.heightForSectionHeader()
+        
         attribute.frame = CGRect(
             x: max(0.0, x),
-            y: min(0, y),
+            y: max(0, y),
             width: width,
             height: height
         )
         
         attribute.zIndex = 2
         
-//        //This should call the delegate method whether or not the headers should float.
+        //This should call the delegate method whether or not the headers should float.
 //        if self.dataTable.shouldSectionHeadersFloat() {
-//            var yScrollOffsetPosition = /*self.dataTable.heightForSearchView() + */self.collectionView!.contentOffset.y
-//            if false == self.dataTable.shouldSearchHeaderFloat(){
-//                yScrollOffsetPosition = max(0/*self.dataTable.heightForSearchView()*/, self.collectionView!.contentOffset.y)
-//            }
-//            attribute.frame.origin.y = yScrollOffsetPosition//max(yScrollOffsetPosition, attribute.frame.origin.y)
+//            let yScrollOffsetPosition = self.collectionView!.contentOffset.y
+//            attribute.frame.origin.y = yScrollOffsetPosition
 //            attribute.zIndex += 1
 //        }
-        
-        //This should call the delegate method whether or not the headers should float.
-        if self.dataTable.shouldSectionHeadersFloat() {
-            let yScrollOffsetPosition = self.collectionView!.contentOffset.y
-            attribute.frame.origin.y = yScrollOffsetPosition
-            attribute.zIndex += 1
-        }
         return attribute
     }
     
@@ -328,11 +321,39 @@ extension SwiftDataTableLayout {
         
         attribute.zIndex = 2
         //This should call the delegate method whether or not the headers should float.
-        if self.dataTable.shouldSectionFootersFloat(){
+        if self.dataTable.shouldSectionFootersFloat() {
             let yOffsetBottomView: CGFloat = self.collectionView!.contentOffset.y + self.collectionView!.bounds.height - height - self.dataTable.heightForPaginationView() // - height
             attribute.frame.origin.y = yOffsetBottomView
             attribute.zIndex += 1
         }
+        
+        return attribute
+    }
+    
+    func layoutAttributesForRowHeaderView(at indexPath: IndexPath) -> UICollectionViewLayoutAttributes? {
+        let attribute = UICollectionViewLayoutAttributes(forSupplementaryViewOfKind: SwiftDataTable.SupplementaryViewType.footerHeader.rawValue, with: indexPath)
+
+        let width = self.dataTable.widthForColumn(index: indexPath.index)
+        let height = self.dataTable.heightForSectionFooter()
+
+        let x = Array(0..<indexPath.index).reduce(self.dataTable.widthForRowHeader()){$0 + self.dataTable.widthForColumn(index: $1)}
+        let y: CGFloat = self.collectionView!.contentSize.height - height
+
+        attribute.frame = CGRect(
+            x: max(0, x),
+            y: y,
+            width: width,
+            height: height
+        )
+        
+        attribute.zIndex = 2
+        //This should call the delegate method whether or not the headers should float.
+        if self.dataTable.shouldSectionFootersFloat() {
+            let yOffsetBottomView: CGFloat = self.collectionView!.contentOffset.y + self.collectionView!.bounds.height - height - self.dataTable.heightForPaginationView() // - height
+            attribute.frame.origin.y = yOffsetBottomView
+            attribute.zIndex += 1
+        }
+        
         return attribute
     }
     
@@ -363,16 +384,16 @@ extension SwiftDataTableLayout {
     
     private func binarySearchAttributes(_ attributes: [UICollectionViewLayoutAttributes], value: CGFloat) -> Int {
         var imin = 0, imax = attributes.count
+        
         while imin < imax {
             let imid = imin + (imax - imin)/2
-            
             if attributes[imid].frame.minY < value {
                 imin = imid+1
-            }
-            else {
+            } else {
                 imax = imid
             }
         }
+        
         return imin
     }
 }

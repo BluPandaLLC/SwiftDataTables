@@ -7,9 +7,22 @@
 //
 
 import Foundation
+import UIKit
 
 //MARK: - TODO: 11 march - TODO: See if you can make the multidimensional array a generic object so that it can accept any value type.
 //This will probably make sorting easier and could potenntially allow us to get rid of this class
+
+public struct DataTableValue {
+    var dataTableValue: DataTableValueType
+    var reuseIdentifier: String
+    var widthOfString: CGFloat
+    
+    public init(dataTableValue dtv: DataTableValueType, reuseIdentifier ri: String, widthOfString width: CGFloat) {
+        dataTableValue = dtv
+        reuseIdentifier = ri
+        widthOfString = width
+    }
+}
 
 public enum DataTableValueType {
     

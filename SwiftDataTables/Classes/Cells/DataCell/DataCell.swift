@@ -7,17 +7,19 @@
 //
 
 import UIKit
+import os.log
 
-class DataCell: UICollectionViewCell {
+/// Subclass this to provide custom cells
+open class DataCell: UICollectionViewCell {
 
     //MARK: - Properties
-    public enum Properties {
-        static let verticalMargin: CGFloat = 5
-        static let horizontalMargin: CGFloat = 15
-        static let widthConstant: CGFloat = 20
+    open class Properties {
+        public static let verticalMargin: CGFloat = 5
+        public static let horizontalMargin: CGFloat = 15
+        public static let widthConstant: CGFloat = 20
     }
     
-    let dataLabel = UILabel()
+    public let dataLabel = UILabel()
     
     //MARK: - Lifecycle
     override init(frame: CGRect) {
@@ -25,11 +27,11 @@ class DataCell: UICollectionViewCell {
         setup()
     }
     
-    required init?(coder: NSCoder) {
+    required public init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
-    private func setup() {
+    open func setup() {
         dataLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(dataLabel)
         NSLayoutConstraint.activate([
@@ -41,8 +43,9 @@ class DataCell: UICollectionViewCell {
         ])
     }
     
-    func configure(_ viewModel: DataCellViewModel){
+    open func configure(_ viewModel: DataCellViewModel) {
+        os_log(.default, log: Log.osLog, "string: %@", viewModel.data.stringRepresentation)
         self.dataLabel.text = viewModel.data.stringRepresentation
 //        self.contentView.backgroundColor = .white
     }
-}
+ }

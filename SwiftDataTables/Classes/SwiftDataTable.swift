@@ -7,8 +7,16 @@
 //
 
 import UIKit
+import os.log
 
-public typealias DataTableRow = [DataTableValueType]
+struct Log {
+    static let osLog = OSLog(subsystem: "com.blupanda.swiftdatatable", category: "app")
+}
+
+/// Array of DataTableValueType (data/reuseIdentifier)
+//public typealias DataTableRow = [DataTableValueType]
+public typealias DataTableRow = [DataTableValue]
+/// Array of array of DataTableValue
 public typealias DataTableContent = [DataTableRow]
 public typealias DataTableViewModelContent = [[DataCellViewModel]]
 
@@ -43,6 +51,9 @@ public class SwiftDataTable: UIView {
     
     var options: DataTableConfiguration
     
+    /// Array of custom collection view cell identifiers to map to columns of the spreadsheet.
+    public var dataCells: [AnyClass]?
+
     //MARK: - Private Properties
     var currentRowViewModels: DataTableViewModelContent {
         get {
@@ -89,6 +100,7 @@ public class SwiftDataTable: UIView {
             collectionView.isPrefetchingEnabled = false
         }
         self.addSubview(collectionView)
+
         self.registerCell(collectionView: collectionView)
         return collectionView
     }()
@@ -120,70 +132,38 @@ public class SwiftDataTable: UIView {
     fileprivate var paginationViewModel: PaginationHeaderViewModel!
     fileprivate var menuLengthViewModel: MenuLengthHeaderViewModel!
     fileprivate var columnWidths = [CGFloat]()
-    
-    
-    //    fileprivate var refreshControl: UIRefreshControl! = {
-    //        let refreshControl = UIRefreshControl()
-    //        refreshControl.attributedTitle = NSAttributedString(string: "Pull to refresh")
-    //        refreshControl.addTarget(self,
-    //                                 action: #selector(refreshOptions(sender:)),
-    //                                 for: .valueChanged)
-    //        return refreshControl
-    //    }()
-    
-    //    //MARK: - Events
-    //    var refreshEvent: (() -> Void)? = nil {
-    //        didSet {
-    //            if refreshEvent != nil {
-    //                self.collectionView.refreshControl = self.refreshControl
-    //            }
-    //            else {
-    //                self.refreshControl = nil
-    //                self.collectionView.refreshControl = nil
-    //            }
-    //        }
-    //    }
-    
-    //    var showRefreshControl: Bool {
-    //        didSet {
-    //            if
-    //            self.refreshControl
-    //        }
-    //    }
-    
-    //MARK: - Lifecycle
-    public init(dataSource: SwiftDataTableDataSource,
-                options: DataTableConfiguration? = DataTableConfiguration(),
-                frame: CGRect = .zero){
-        self.options = options!
-        super.init(frame: frame)
-        self.dataSource = dataSource
         
-        self.set(options: options)
-        self.registerObservers()
+    var rowCount: Int {
+        return dataStructure.rowCount
     }
-    
+            
+    //MARK: - Lifecycle
     public init(data: DataTableContent,
+                columnWidths: [CGFloat],
                 headerTitles: [String],
                 options: DataTableConfiguration = DataTableConfiguration(),
-                frame: CGRect = .zero)
-    {
+                dataCells: [AnyClass] = [AnyClass](),
+                frame: CGRect = .zero) {
         self.options = options
+        self.columnWidths = columnWidths
+        self.dataCells = dataCells
         super.init(frame: frame)
-        self.set(data: data, headerTitles: headerTitles, options: options, shouldReplaceLayout: true)
-        self.registerObservers()
-        
-        
+        self.set(data: data, columnWidths: columnWidths, headerTitles: headerTitles, options: options, shouldReplaceLayout: true)
+        NotificationCenter.default.addObserver(self, selector: #selector(deviceOrientationWillChange), name: UIApplication.willChangeStatusBarOrientationNotification, object: nil)
     }
+    
     public convenience init(data: [[String]],
+                            columnWidths: [CGFloat],
                             headerTitles: [String],
                             options: DataTableConfiguration = DataTableConfiguration(),
-                            frame: CGRect = .zero)
-    {
+                            dataCells: [AnyClass] = [AnyClass](),
+                            frame: CGRect = .zero) {
         self.init(
-            data: data.map { $0.map { .string($0) }},
+            data: data.map { $0.map { DataTableValue(dataTableValue: .string($0), reuseIdentifier: "", widthOfString: 0.0) }},
+            columnWidths: columnWidths,
             headerTitles: headerTitles,
             options: options,
+            dataCells: dataCells,
             frame: frame
         )
     }
@@ -191,7 +171,6 @@ public class SwiftDataTable: UIView {
     required public init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
     
     deinit {
         NotificationCenter.default.removeObserver(self, name: UIApplication.willChangeStatusBarOrientationNotification, object: nil)
@@ -203,84 +182,46 @@ public class SwiftDataTable: UIView {
         self.searchBar.frame = CGRect(x: 0, y: 0, width: self.bounds.width, height: searchBarHeight)
         self.collectionView.frame = CGRect(x: 0, y: searchBarHeight, width: self.bounds.width, height: self.bounds.height-searchBarHeight)
     }
-    
-    func registerObservers(){
-        NotificationCenter.default.addObserver(self, selector: #selector(deviceOrientationWillChange), name: UIApplication.willChangeStatusBarOrientationNotification, object: nil)
-    }
+        
     @objc func deviceOrientationWillChange() {
         self.layout?.clearLayoutCache()
     }
     
     //TODO: Abstract away the registering of classes so that a user can register their own nibs or classes.
+    /// Register custom collection cell views with the collection view. Includes header, footer, pagination header, search header, and custom cells supplied by calling app
     func registerCell(collectionView: UICollectionView){
         let headerIdentifier = String(describing: DataHeaderFooter.self)
+        
         collectionView.register(DataHeaderFooter.self, forSupplementaryViewOfKind: SupplementaryViewType.columnHeader.rawValue, withReuseIdentifier: headerIdentifier)
         collectionView.register(DataHeaderFooter.self, forSupplementaryViewOfKind: SupplementaryViewType.footerHeader.rawValue, withReuseIdentifier: headerIdentifier)
         collectionView.register(PaginationHeader.self, forSupplementaryViewOfKind: SupplementaryViewType.paginationHeader.rawValue, withReuseIdentifier: String(describing: PaginationHeader.self))
         collectionView.register(MenuLengthHeader.self, forSupplementaryViewOfKind: SupplementaryViewType.searchHeader.rawValue, withReuseIdentifier: String(describing: MenuLengthHeader.self))
         collectionView.register(DataCell.self, forCellWithReuseIdentifier: String(describing: DataCell.self))
+        
+        // register custom collection view cells from calling app
+        if let cells = dataCells {
+            for cell in cells {
+                collectionView.register(cell, forCellWithReuseIdentifier: String(describing: cell))
+            }
+        }
     }
     
-    func set(data: DataTableContent, headerTitles: [String], options: DataTableConfiguration? = nil, shouldReplaceLayout: Bool = false){
-        self.dataStructure = DataStructureModel(data: data, headerTitles: headerTitles)
+    func set(data: DataTableContent, columnWidths: [CGFloat], headerTitles: [String], options: DataTableConfiguration? = nil, shouldReplaceLayout: Bool = false){
+        self.columnWidths = columnWidths
+        self.dataStructure = DataStructureModel(data: data, columnWidths: columnWidths, headerTitles: headerTitles)
         self.createDataCellViewModels(with: self.dataStructure)
-        self.applyOptions(options)
-        if(shouldReplaceLayout){
+        
+        if let options = options, let defaultOrdering = options.defaultOrdering {
+            self.highlight(column: defaultOrdering.index)
+            self.applyColumnOrder(defaultOrdering)
+            self.sort(column: defaultOrdering.index, sort: self.headerViewModels[defaultOrdering.index].sortType)
+        }
+        
+        if (shouldReplaceLayout) {
             self.layout = SwiftDataTableLayout(dataTable: self)
         }
+    }
         
-    }
-    
-    func applyOptions(_ options: DataTableConfiguration?){
-        guard let options = options else {
-            return
-        }
-        if let defaultOrdering = options.defaultOrdering {
-            self.applyDefaultColumnOrder(defaultOrdering)
-        }
-    }
-    
-    func calculateColumnWidths(){
-        //calculate the automatic widths for each column
-        self.columnWidths.removeAll()
-        for columnIndex in Array(0..<self.numberOfHeaderColumns()) {
-            self.columnWidths.append(self.automaticWidthForColumn(index: columnIndex))
-        }
-        self.scaleColumnWidthsIfRequired()
-    }
-    func scaleColumnWidthsIfRequired(){
-        guard self.shouldContentWidthScaleToFillFrame() else {
-            return
-        }
-        self.scaleToFillColumnWidths()
-    }
-    func scaleToFillColumnWidths(){
-        //if content width is smaller than ipad width
-        let totalColumnWidth = self.columnWidths.reduce(0, +)
-        let totalWidth = self.frame.width
-        let gap: CGFloat = totalWidth - totalColumnWidth
-        guard totalColumnWidth < totalWidth else {
-            return
-        }
-        //calculate the percentage width presence of each column in relation to the frame width of the collection view
-        for columnIndex in Array(0..<self.columnWidths.count) {
-            let columnWidth = self.columnWidths[columnIndex]
-            let columnWidthPercentagePresence = columnWidth / totalColumnWidth
-            //add result of gap size divided by percentage column width to each column automatic width.
-            let gapPortionToDistributeToCurrentColumn = gap * columnWidthPercentagePresence
-            //apply final result of each column width to the column width array.
-            self.columnWidths[columnIndex] = columnWidth + gapPortionToDistributeToCurrentColumn
-        }
-    }
-    
-    public func reloadEverything(){
-        self.layout?.clearLayoutCache()
-        self.collectionView.reloadData()
-    }
-    public func reloadRowsOnly(){
-        
-    }
-    
     public func reload(){
         var data = DataTableContent()
         var headerTitles = [String]()
@@ -303,7 +244,7 @@ public class SwiftDataTable: UIView {
         }
         self.layout?.clearLayoutCache()
         self.collectionView.resetScrollPositionToTop()
-        self.set(data: data, headerTitles: headerTitles, options: self.options)
+        self.set(data: data, columnWidths: columnWidths, headerTitles: headerTitles, options: self.options)
         self.collectionView.reloadData()
     }
     
@@ -317,7 +258,7 @@ public extension SwiftDataTable {
         self.dataStructure = data
     }
     
-    func createDataCellViewModels(with dataStructure: DataStructureModel){// -> DataTableViewModelContent {
+    func createDataCellViewModels(with dataStructure: DataStructureModel) {// -> DataTableViewModelContent {
         //1. Create the headers
         self.headerViewModels = Array(0..<(dataStructure.headerTitles.count)).map {
             let headerViewModel = DataHeaderFooterViewModel(
@@ -339,30 +280,16 @@ public extension SwiftDataTable {
         
         //2. Create the view models
         //let viewModels: DataTableViewModelContent =
-        self.rowViewModels = dataStructure.data.map{ currentRowData in
+        self.rowViewModels = dataStructure.data.map { currentRowData in
             return currentRowData.map {
-                return DataCellViewModel(data: $0)
+                return DataCellViewModel(data: $0.dataTableValue, reuseIdentifier: $0.reuseIdentifier)
             }
         }
         self.paginationViewModel = PaginationHeaderViewModel()
         self.menuLengthViewModel = MenuLengthHeaderViewModel()
         //        self.bindViewToModels()
     }
-    
-    //    //MARK: - Events
-    //    private func bindViewToModels(){
-    //        self.menuLengthViewModel.searchTextFieldDidChangeEvent = { [weak self] text in
-    //            self?.searchTextEntryDidChange(text)
-    //        }
-    //    }
-    //
-    //    private func searchTextEntryDidChange(_ text: String){
-    //        //call delegate function
-    //        self.executeSearch(text)
-    //    }
 }
-
-
 
 extension SwiftDataTable: UICollectionViewDataSource, UICollectionViewDelegate {
     public func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
@@ -390,6 +317,7 @@ extension SwiftDataTable: UICollectionViewDataSource, UICollectionViewDelegate {
         let cell = cellViewModel.dequeueCell(collectionView: collectionView, indexPath: indexPath)
         return cell
     }
+    
     public func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
         let numberOfItemsInLine: CGFloat = 6
         
@@ -471,8 +399,8 @@ extension SwiftDataTable: UIScrollViewDelegate {
             self.searchBar.resignFirstResponder()
         }
     }
+    
     public func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        
         if self.disableScrollViewLeftBounce() {
             if (self.collectionView.contentOffset.x <= 0) {
                 self.collectionView.contentOffset.x = 0
@@ -500,30 +428,9 @@ extension SwiftDataTable: UIScrollViewDelegate {
 
 //MARK: - Refresh
 extension SwiftDataTable {
-    //    @objc fileprivate func refreshOptions(sender: UIRefreshControl) {
-    //        self.refreshEvent?()
-    //    }
-    //
-    //    func beginRefreshing(){
-    //        self.refreshControl.beginRefreshing()
-    //    }
-    //
-    //    func endRefresh(){
-    //        self.refreshControl.endRefreshing()
-    //    }
-}
-
-extension SwiftDataTable {
-    
     fileprivate func update(){
-        //        print("\nUpdate")
-        self.reloadEverything()
-    }
-    
-    fileprivate func applyDefaultColumnOrder(_ columnOrder: DataTableColumnOrder){
-        self.highlight(column: columnOrder.index)
-        self.applyColumnOrder(columnOrder)
-        self.sort(column: columnOrder.index, sort: self.headerViewModels[columnOrder.index].sortType)
+        self.layout?.clearLayoutCache()
+        self.collectionView.reloadData()
     }
     
     func didTapColumn(index: IndexPath) {
@@ -582,7 +489,6 @@ extension SwiftDataTable {
                 self.headerViewModels[$0].sortType.toggleToDefault()
             }
         }
-        //        self.headerViewModels.forEach { print($0.sortType) }
     }
     
     //This is actually mapped to sections
@@ -643,16 +549,11 @@ extension SwiftDataTable {
         return self.delegate?.heightForSectionHeader?(in: self) ?? self.options.heightForSectionHeader
     }
     
-    
     func widthForColumn(index: Int) -> CGFloat {
         //May need to call calculateColumnWidths.. I want to deprecate it..
         guard let width = self.delegate?.dataTable?(self, widthForColumnAt: index) else {
             return self.columnWidths[index]
         }
-        //TODO: Implement it so that the preferred column widths are calculated first, and then the scaling happens after to fill the frame.
-//        if width != SwiftDataTableAutomaticColumnWidth {
-//            self.columnWidths[index] = width
-//        }
         return width
     }
     
@@ -674,23 +575,11 @@ extension SwiftDataTable {
     func heightOfInterRowSpacing() -> CGFloat {
         return self.delegate?.heightOfInterRowSpacing?(in: self) ?? self.options.heightOfInterRowSpacing
     }
+    
     func widthForRowHeader() -> CGFloat {
         return 0
     }
-    
-    
-    /// Automatically calcualtes the width the column should be based on the content
-    /// in the rows under the column.
-    ///
-    /// - Parameter index: The column index
-    /// - Returns: The automatic width of the column irrespective of the Data Grid frame width
-    func automaticWidthForColumn(index: Int) -> CGFloat {
-        let columnAverage: CGFloat = CGFloat(dataStructure.averageDataLengthForColumn(index: index))
-        let sortingArrowVisualElementWidth: CGFloat = 10 // This is ugly
-      let averageDataColumnWidth: CGFloat = columnAverage + sortingArrowVisualElementWidth + (DataCell.Properties.horizontalMargin * 2)
-        return max(averageDataColumnWidth, max(self.minimumColumnWidth(), self.minimumHeaderColumnWidth(index: index)))
-    }
-    
+        
     func calculateContentWidth() -> CGFloat {
         return Array(0..<self.numberOfColumns()).reduce(self.widthForRowHeader()) { $0 + self.widthForColumn(index: $1)}
     }
@@ -789,11 +678,11 @@ extension SwiftDataTable: UISearchBarDelegate {
         oldRows: DataTableViewModelContent,
         filteredRows: DataTableViewModelContent,
         animations: Bool = false,
-        completion: ((Bool) -> Void)? = nil){
-        if animations == false {
-            UIView.setAnimationsEnabled(false)
-        }
-        self.collectionView.performBatchUpdates({
+        completion: ((Bool) -> Void)? = nil) {
+        
+        UIView.setAnimationsEnabled(animations)
+                
+        collectionView.performBatchUpdates {
             //finding the differences
             
             //The currently displayed rows - in this case named old rows - is scanned over.. deleting any entries that are not existing in the newly created filtered list.
@@ -801,6 +690,7 @@ extension SwiftDataTable: UISearchBarDelegate {
                 let index = self.searchRowViewModels.firstIndex { rowViewModel in
                     return oldRowViewModel == rowViewModel
                 }
+                
                 if index == nil {
                     self.collectionView.deleteSections([oldIndex])
                 }
@@ -811,17 +701,18 @@ extension SwiftDataTable: UISearchBarDelegate {
                 let oldIndex = oldRows.firstIndex { oldRowViewModel in
                     return currentRolwViewModel == oldRowViewModel
                 }
+                
                 if oldIndex == nil {
                     self.collectionView.insertSections([currentIndex])
                 }
             }
-        }, completion: { finished in
+        } completion: { finished in
             self.collectionView.reloadItems(at: self.collectionView.indexPathsForVisibleItems)
             if animations == false {
                 UIView.setAnimationsEnabled(true)
             }
             completion?(finished)
-        })
+        }
     }
 }
 
