@@ -16,11 +16,15 @@ public struct DataTableValue {
     var dataTableValue: DataTableValueType
     var reuseIdentifier: String
     var widthOfString: CGFloat
+    var linkViewControllerType: UIViewController.Type?
+    var delegate: DataCellDelegate?
     
-    public init(dataTableValue dtv: DataTableValueType, reuseIdentifier ri: String, widthOfString width: CGFloat) {
+    public init(dataTableValue dtv: DataTableValueType, reuseIdentifier ri: String, widthOfString width: CGFloat, linkViewControllerType lvct: UIViewController.Type? = nil, delegate del: DataCellDelegate? = nil) {
         dataTableValue = dtv
         reuseIdentifier = ri
         widthOfString = width
+        linkViewControllerType = lvct
+        delegate = del
     }
 }
 

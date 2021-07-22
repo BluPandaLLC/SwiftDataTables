@@ -9,6 +9,10 @@
 import UIKit
 import os.log
 
+public protocol DataCellDelegate {
+    func didTap(forVC vc: UIViewController)
+}
+
 /// Subclass this to provide custom cells
 open class DataCell: UICollectionViewCell {
 
@@ -20,6 +24,7 @@ open class DataCell: UICollectionViewCell {
     }
     
     public let dataLabel = UILabel()
+    public var delegate: DataCellDelegate?
     
     //MARK: - Lifecycle
     override init(frame: CGRect) {

@@ -282,7 +282,7 @@ public extension SwiftDataTable {
         //let viewModels: DataTableViewModelContent =
         self.rowViewModels = dataStructure.data.map { currentRowData in
             return currentRowData.map {
-                return DataCellViewModel(data: $0.dataTableValue, reuseIdentifier: $0.reuseIdentifier)
+                return DataCellViewModel(data: $0.dataTableValue, reuseIdentifier: $0.reuseIdentifier, linkViewController: $0.linkViewControllerType, dataCellDelegate: $0.delegate)
             }
         }
         self.paginationViewModel = PaginationHeaderViewModel()
@@ -307,14 +307,12 @@ extension SwiftDataTable: UICollectionViewDataSource, UICollectionViewDelegate {
     }
     
     public func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        let cellViewModel: DataCellViewModel
-        //if let dataSource = self.dataSource {
-        //    cellViewModel = dataSource.dataTable(self, dataForRowAt: indexPath.row)
-        //}
-        //else {
-        cellViewModel = self.rowModel(at: indexPath)
-        //}
-        let cell = cellViewModel.dequeueCell(collectionView: collectionView, indexPath: indexPath)
+        let cellViewModel = self.rowModel(at: indexPath)
+        
+        guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: cellViewModel.reuseIdentifer, for: indexPath) as? DataCell else {
+            fatalError("error in collection view cell")
+        }
+        cell.configure(cellViewModel)
         return cell
     }
     

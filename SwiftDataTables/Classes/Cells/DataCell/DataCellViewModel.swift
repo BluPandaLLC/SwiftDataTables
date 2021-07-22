@@ -17,6 +17,11 @@ open class DataCellViewModel: CollectionViewCellRepresentable {
     public let data: DataTableValueType
     /// identifies what cell type to dequeue
     public let reuseIdentifer: String
+    /// Used by `LinkCell` to know what `UIViewController` type to instantiate.
+    public let linkViewControllerType: UIViewController.Type?
+    /// Used by `LinkCell` to provide view controller from which to push the link view controller
+    public let delegate: DataCellDelegate?
+    
     var highlighted: Bool = false
 
     public var stringRepresentation: String {
@@ -24,28 +29,14 @@ open class DataCellViewModel: CollectionViewCellRepresentable {
     }
     
     //MARK: - Lifecycle
-    init(data: DataTableValueType, reuseIdentifier id: String){
+    init(data: DataTableValueType, reuseIdentifier id: String, linkViewController lvct: UIViewController.Type? = nil, dataCellDelegate del: DataCellDelegate? = nil){
         self.data = data
-        self.reuseIdentifer = id
-    }
-
-    static func registerCell(collectionView: UICollectionView) {
-        let identifier = String(describing: DataCell.self)
-        collectionView.register(DataCell.self, forCellWithReuseIdentifier: identifier)
-        let nib = UINib(nibName: identifier, bundle: nil)
-        collectionView.register(nib, forCellWithReuseIdentifier: identifier)
-    }
-    
-    func dequeueCell(collectionView: UICollectionView, indexPath: IndexPath) -> UICollectionViewCell {
-//        let identifier = String(describing: DataCell.self)
-        guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: reuseIdentifer, for: indexPath) as? DataCell else {
-            fatalError("error in collection view cell")
-        }
-        
-        cell.configure(self)
-        return cell
+        reuseIdentifer = id
+        linkViewControllerType = lvct
+        delegate = del
     }
 }
+
 extension DataCellViewModel: Equatable {
     /// Returns a Boolean value indicating whether two values are equal.
     ///

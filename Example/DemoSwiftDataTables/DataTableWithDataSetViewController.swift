@@ -19,6 +19,7 @@ class DataTableWithDataSetViewController: UIViewController {
         setupViews()
         setupConstraints()
     }
+    
     func setupViews() {
         navigationController?.navigationBar.isTranslucent = false
         title = "Employee Balances"
@@ -26,6 +27,7 @@ class DataTableWithDataSetViewController: UIViewController {
         automaticallyAdjustsScrollViewInsets = false
         view.addSubview(dataTable)
     }
+    
     func setupConstraints() {
         NSLayoutConstraint.activate([
             dataTable.topAnchor.constraint(equalTo: view.layoutMarginsGuide.topAnchor),
