@@ -10,7 +10,8 @@ import UIKit
 import os.log
 
 public protocol DataCellDelegate {
-    func didTap(forVC vc: UIViewController)
+    func didTap(forVC vc: UIViewController, searchKey key: String?)
+    func didTap(dataCellViewModel dcvm: DataCellViewModel)
 }
 
 /// Subclass this to provide custom cells

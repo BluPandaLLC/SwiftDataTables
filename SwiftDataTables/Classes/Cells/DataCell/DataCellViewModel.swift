@@ -21,6 +21,8 @@ open class DataCellViewModel: CollectionViewCellRepresentable {
     public let linkViewControllerType: UIViewController.Type?
     /// Used by `LinkCell` to provide view controller from which to push the link view controller
     public let delegate: DataCellDelegate?
+    /// String to use as a key for a detail search API call
+    public let searchKey: String?
     
     var highlighted: Bool = false
 
@@ -29,11 +31,12 @@ open class DataCellViewModel: CollectionViewCellRepresentable {
     }
     
     //MARK: - Lifecycle
-    init(data: DataTableValueType, reuseIdentifier id: String, linkViewController lvct: UIViewController.Type? = nil, dataCellDelegate del: DataCellDelegate? = nil){
+    init(data: DataTableValueType, reuseIdentifier id: String, linkViewController lvct: UIViewController.Type? = nil, dataCellDelegate del: DataCellDelegate? = nil, searchKey key: String?){
         self.data = data
         reuseIdentifer = id
         linkViewControllerType = lvct
         delegate = del
+        searchKey = key
     }
 }
 

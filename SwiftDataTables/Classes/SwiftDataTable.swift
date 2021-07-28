@@ -84,6 +84,7 @@ public class SwiftDataTable: UIView {
     
     //Lazy var
     fileprivate(set) open lazy var collectionView: UICollectionView = {
+        os_log(.default, log: Log.osLog, "Creating collectionView")
         guard let layout = self.layout else {
             fatalError("The layout needs to be set first")
         }
@@ -102,6 +103,7 @@ public class SwiftDataTable: UIView {
         self.addSubview(collectionView)
 
         self.registerCell(collectionView: collectionView)
+        os_log(.default, log: Log.osLog, "Created collectionView")
         return collectionView
     }()
     
@@ -282,7 +284,7 @@ public extension SwiftDataTable {
         //let viewModels: DataTableViewModelContent =
         self.rowViewModels = dataStructure.data.map { currentRowData in
             return currentRowData.map {
-                return DataCellViewModel(data: $0.dataTableValue, reuseIdentifier: $0.reuseIdentifier, linkViewController: $0.linkViewControllerType, dataCellDelegate: $0.delegate)
+                return DataCellViewModel(data: $0.dataTableValue, reuseIdentifier: $0.reuseIdentifier, linkViewController: $0.linkViewControllerType, dataCellDelegate: $0.delegate, searchKey: $0.searchKey)
             }
         }
         self.paginationViewModel = PaginationHeaderViewModel()
