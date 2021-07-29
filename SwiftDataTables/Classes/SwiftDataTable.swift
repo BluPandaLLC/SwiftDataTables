@@ -49,7 +49,7 @@ public class SwiftDataTable: UIView {
         return self.currentRowViewModels
     }
     
-    var options: DataTableConfiguration
+    var options = DataTableConfiguration()
     
     /// Array of custom collection view cell identifiers to map to columns of the spreadsheet.
     public var dataCells: [AnyClass]?
@@ -171,7 +171,7 @@ public class SwiftDataTable: UIView {
     }
     
     required public init?(coder aDecoder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        super.init(coder: aDecoder)
     }
     
     deinit {
