@@ -170,6 +170,19 @@ public class SwiftDataTable: UIView {
         )
     }
     
+    public func initialize(data: DataTableContent,
+                           columnWidths: [CGFloat],
+                           headerTitles: [String],
+                           options: DataTableConfiguration = DataTableConfiguration(),
+                           dataCells: [AnyClass] = [AnyClass](),
+                           frame: CGRect = .zero) {
+        self.options = options
+        self.columnWidths = columnWidths
+        self.dataCells = dataCells
+        self.set(data: data, columnWidths: columnWidths, headerTitles: headerTitles, options: options, shouldReplaceLayout: true)
+        NotificationCenter.default.addObserver(self, selector: #selector(deviceOrientationWillChange), name: UIApplication.willChangeStatusBarOrientationNotification, object: nil)
+    }
+    
     required public init?(coder aDecoder: NSCoder) {
         super.init(coder: aDecoder)
     }
