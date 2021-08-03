@@ -13,6 +13,12 @@ struct Log {
     static let osLog = OSLog(subsystem: "com.blupanda.swiftdatatable", category: "app")
 }
 
+protocol DataStructureViewModelFactory {
+    func makeHeaderViewModels(fromDataStructure ds: DataStructureModel) -> [DataHeaderFooterViewModel]
+    func makeFooterViewModles(fromDataStructure ds: DataStructureModel) -> [DataHeaderFooterViewModel]
+    func makeRowViewModels(fromDataStructure ds: DataStructureModel) -> DataTableViewModelContent
+}
+
 /// Array of DataTableValueType (data/reuseIdentifier)
 //public typealias DataTableRow = [DataTableValueType]
 public typealias DataTableRow = [DataTableValue]
@@ -21,6 +27,7 @@ public typealias DataTableContent = [DataTableRow]
 public typealias DataTableViewModelContent = [[DataCellViewModel]]
 
 public class SwiftDataTable: UIView {
+    /// enum indicating type of a supplemental view. Translates iOS `kind ` string to an enum.
     public enum SupplementaryViewType: String {
         /// Single header positioned at the top above the column section
         case paginationHeader = "SwiftDataTablePaginationHeader"
@@ -51,8 +58,12 @@ public class SwiftDataTable: UIView {
     
     var options = DataTableConfiguration()
     
-    /// Array of custom collection view cell identifiers to map to columns of the spreadsheet.
+    /// Array of custom collection view cell identifiers to map to columns of the spreadsheet. Set with `[CellClass.self]`.
     public var dataCells: [AnyClass]?
+    /// Required array of header cells. Must be one for each column
+    public var headerCells = [AnyClass]()
+    /// Required array of footer cells. Must be one for each column
+    public var footerCells = [AnyClass]()
 
     //MARK: - Private Properties
     var currentRowViewModels: DataTableViewModelContent {
@@ -76,7 +87,6 @@ public class SwiftDataTable: UIView {
             searchBar.backgroundColor = .white
             searchBar.barTintColor = .white
         }
-        
         
         self.addSubview(searchBar)
         return searchBar
@@ -110,29 +120,26 @@ public class SwiftDataTable: UIView {
     fileprivate(set) var layout: SwiftDataTableLayout? = nil {
         didSet {
             if let layout = layout {
+                os_log(.default, log: Log.osLog, "reloadData() from layout didSet")
                 self.collectionView.collectionViewLayout = layout
                 self.collectionView.reloadData()
             }
         }
     }
     
-    fileprivate var dataStructure = DataStructureModel() {
-        didSet {
-            self.createDataCellViewModels(with: dataStructure)
-        }
-    }
-    
+    var dataStructure = DataStructureModel()
     fileprivate(set) var headerViewModels = [DataHeaderFooterViewModel]()
     fileprivate(set) var footerViewModels = [DataHeaderFooterViewModel]()
-    fileprivate var rowViewModels = DataTableViewModelContent() {
+    
+    var rowViewModels = DataTableViewModelContent() {
         didSet {
             self.searchRowViewModels = rowViewModels
         }
     }
-    fileprivate var searchRowViewModels: DataTableViewModelContent!
     
-    fileprivate var paginationViewModel: PaginationHeaderViewModel!
-    fileprivate var menuLengthViewModel: MenuLengthHeaderViewModel!
+    var searchRowViewModels: DataTableViewModelContent!
+    var paginationViewModel = PaginationHeaderViewModel()
+    var menuLengthViewModel = MenuLengthHeaderViewModel()
     fileprivate var columnWidths = [CGFloat]()
         
     var rowCount: Int {
@@ -143,27 +150,55 @@ public class SwiftDataTable: UIView {
     public init(data: DataTableContent,
                 columnWidths: [CGFloat],
                 headerTitles: [String],
+                footerTitles: [String],
+                headerCells: [AnyClass],
+                footerCells: [AnyClass],
                 options: DataTableConfiguration = DataTableConfiguration(),
                 dataCells: [AnyClass] = [AnyClass](),
                 frame: CGRect = .zero) {
+        os_log(.default, log: Log.osLog, "init() with DataTableContent")
+        if headerTitles.count != headerCells.count {
+            os_log(.fault, log: Log.osLog, "headerCell count (%i) not equal to headerTitle count (%i))", headerCells.count, headerTitles.count)
+            fatalError("headerCell count (\(headerCells.count)) not equal to headerTitle count (\(headerTitles.count))")
+        }
+
+        if footerTitles.count != footerCells.count {
+            os_log(.fault, log: Log.osLog, "footerCell count (%i) not equal to footerTitle count (%i))", footerCells.count, footerTitles.count)
+            fatalError("footerCell count (\(footerCells.count)) not equal to footerTitle count (\(footerTitles.count))")
+        }
+
+        if footerTitles.count != headerTitles.count {
+            os_log(.fault, log: Log.osLog, "headerTitles count (%i) not equal to footerTitle count (%i))", headerTitles.count, footerTitles.count)
+            fatalError("headerTitles count (\(headerTitles.count)) not equal to footerTitle count (\(footerTitles.count))")
+        }
+
         self.options = options
         self.columnWidths = columnWidths
         self.dataCells = dataCells
+        self.headerCells = headerCells
+        self.footerCells = footerCells
         super.init(frame: frame)
-        self.set(data: data, columnWidths: columnWidths, headerTitles: headerTitles, options: options, shouldReplaceLayout: true)
+        self.set(data: data, columnWidths: columnWidths, headerTitles: headerTitles, footerTitles: footerTitles, options: options, shouldReplaceLayout: true)
         NotificationCenter.default.addObserver(self, selector: #selector(deviceOrientationWillChange), name: UIApplication.willChangeStatusBarOrientationNotification, object: nil)
     }
     
     public convenience init(data: [[String]],
                             columnWidths: [CGFloat],
                             headerTitles: [String],
+                            footerTitles: [String],
+                            headerCells: [AnyClass],
+                            footerCells: [AnyClass],
                             options: DataTableConfiguration = DataTableConfiguration(),
                             dataCells: [AnyClass] = [AnyClass](),
                             frame: CGRect = .zero) {
+        os_log(.default, log: Log.osLog, "init() with [[Any]")
         self.init(
             data: data.map { $0.map { DataTableValue(dataTableValue: .string($0), reuseIdentifier: "", widthOfString: 0.0) }},
             columnWidths: columnWidths,
             headerTitles: headerTitles,
+            footerTitles: footerTitles,
+            headerCells: headerCells,
+            footerCells: footerCells,
             options: options,
             dataCells: dataCells,
             frame: frame
@@ -173,13 +208,18 @@ public class SwiftDataTable: UIView {
     public func initialize(data: DataTableContent,
                            columnWidths: [CGFloat],
                            headerTitles: [String],
+                           footerTitles: [String],
+                           headerCells: [AnyClass],
+                           footerCells: [AnyClass],
                            options: DataTableConfiguration = DataTableConfiguration(),
                            dataCells: [AnyClass] = [AnyClass](),
                            frame: CGRect = .zero) {
         self.options = options
         self.columnWidths = columnWidths
         self.dataCells = dataCells
-        self.set(data: data, columnWidths: columnWidths, headerTitles: headerTitles, options: options, shouldReplaceLayout: true)
+        self.headerCells = headerCells
+        self.footerCells = footerCells
+        self.set(data: data, columnWidths: columnWidths, headerTitles: headerTitles, footerTitles: footerTitles, options: options, shouldReplaceLayout: true)
         NotificationCenter.default.addObserver(self, selector: #selector(deviceOrientationWillChange), name: UIApplication.willChangeStatusBarOrientationNotification, object: nil)
     }
     
@@ -205,13 +245,11 @@ public class SwiftDataTable: UIView {
     //TODO: Abstract away the registering of classes so that a user can register their own nibs or classes.
     /// Register custom collection cell views with the collection view. Includes header, footer, pagination header, search header, and custom cells supplied by calling app
     func registerCell(collectionView: UICollectionView){
-        let headerIdentifier = String(describing: DataHeaderFooter.self)
-        
-        collectionView.register(DataHeaderFooter.self, forSupplementaryViewOfKind: SupplementaryViewType.columnHeader.rawValue, withReuseIdentifier: headerIdentifier)
-        collectionView.register(DataHeaderFooter.self, forSupplementaryViewOfKind: SupplementaryViewType.footerHeader.rawValue, withReuseIdentifier: headerIdentifier)
         collectionView.register(PaginationHeader.self, forSupplementaryViewOfKind: SupplementaryViewType.paginationHeader.rawValue, withReuseIdentifier: String(describing: PaginationHeader.self))
         collectionView.register(MenuLengthHeader.self, forSupplementaryViewOfKind: SupplementaryViewType.searchHeader.rawValue, withReuseIdentifier: String(describing: MenuLengthHeader.self))
+        
         collectionView.register(DataCell.self, forCellWithReuseIdentifier: String(describing: DataCell.self))
+        
         
         // register custom collection view cells from calling app
         if let cells = dataCells {
@@ -219,12 +257,35 @@ public class SwiftDataTable: UIView {
                 collectionView.register(cell, forCellWithReuseIdentifier: String(describing: cell))
             }
         }
+        // register header/footer cells
+        registerOnlyUniqueCells(allCells: headerCells, forSupplementaryViewOfKind: SupplementaryViewType.columnHeader.rawValue, inCollectionView: collectionView)
+        registerOnlyUniqueCells(allCells: footerCells, forSupplementaryViewOfKind: SupplementaryViewType.footerHeader.rawValue, inCollectionView: collectionView)
     }
     
-    func set(data: DataTableContent, columnWidths: [CGFloat], headerTitles: [String], options: DataTableConfiguration? = nil, shouldReplaceLayout: Bool = false){
+    func registerOnlyUniqueCells(allCells cells: [AnyClass], forSupplementaryViewOfKind elementKind: String, inCollectionView cv: UICollectionView) {
+        var uniqueCells = [AnyClass]()
+        var seenCellStrings = Set<String>()
+        for cell in cells {
+            let cellString = String(describing: cell)
+            if !seenCellStrings.contains(cellString) {
+                uniqueCells.append(cell)
+                seenCellStrings.insert(cellString)
+            }
+        }
+        
+        for cell in uniqueCells {
+            cv.register(cell, forSupplementaryViewOfKind: elementKind, withReuseIdentifier: String(describing: cell))
+        }
+    }
+    
+    func set(data: DataTableContent, columnWidths: [CGFloat], headerTitles: [String], footerTitles: [String], options: DataTableConfiguration? = nil, shouldReplaceLayout: Bool = false){
+        os_log(.default, log: Log.osLog, "Running set()")
         self.columnWidths = columnWidths
-        self.dataStructure = DataStructureModel(data: data, columnWidths: columnWidths, headerTitles: headerTitles)
-        self.createDataCellViewModels(with: self.dataStructure)
+        self.dataStructure = DataStructureModel(data: data, columnWidths: columnWidths, headerTitles: headerTitles, footerTitles: footerTitles, headerCells: headerCells, footerCells: footerCells)
+        
+        headerViewModels = makeHeaderViewModels(fromDataStructure: dataStructure)
+        footerViewModels = makeFooterViewModles(fromDataStructure: dataStructure)
+        rowViewModels = makeRowViewModels(fromDataStructure: dataStructure)
         
         if let options = options, let defaultOrdering = options.defaultOrdering {
             self.highlight(column: defaultOrdering.index)
@@ -240,6 +301,7 @@ public class SwiftDataTable: UIView {
     public func reload(){
         var data = DataTableContent()
         var headerTitles = [String]()
+        var footerTitles = [String()]
         
         let numberOfColumns = dataSource?.numberOfColumns(in: self) ?? 0
         let numberOfRows = dataSource?.numberOfRows(in: self) ?? 0
@@ -249,6 +311,11 @@ public class SwiftDataTable: UIView {
                 return
             }
             headerTitles.append(headerTitle)
+
+            guard let footerTitle = dataSource?.dataTable(self, footerTitleForColumnAt: columnIndex) else {
+                return
+            }
+            footerTitles.append(footerTitle)
         }
         
         for index in 0..<numberOfRows {
@@ -259,135 +326,14 @@ public class SwiftDataTable: UIView {
         }
         self.layout?.clearLayoutCache()
         self.collectionView.resetScrollPositionToTop()
-        self.set(data: data, columnWidths: columnWidths, headerTitles: headerTitles, options: self.options)
+        self.set(data: data, columnWidths: columnWidths, headerTitles: headerTitles, footerTitles: footerTitles, options: self.options)
         self.collectionView.reloadData()
     }
-    
-    public func data(for indexPath: IndexPath) -> DataTableValueType {
+        public func data(for indexPath: IndexPath) -> DataTableValueType {
         return rows[indexPath.section][indexPath.row].data
     }
 }
 
-public extension SwiftDataTable {
-    func createDataModels(with data: DataStructureModel){
-        self.dataStructure = data
-    }
-    
-    func createDataCellViewModels(with dataStructure: DataStructureModel) {// -> DataTableViewModelContent {
-        //1. Create the headers
-        self.headerViewModels = Array(0..<(dataStructure.headerTitles.count)).map {
-            let headerViewModel = DataHeaderFooterViewModel(
-                data: dataStructure.headerTitles[$0],
-                sortType: dataStructure.columnHeaderSortType(for: $0)
-            )
-            headerViewModel.configure(dataTable: self, columnIndex: $0)
-            return headerViewModel
-        }
-        
-        self.footerViewModels = Array(0..<(dataStructure.footerTitles.count)).map {
-            let sortTypeForFooter = dataStructure.columnFooterSortType(for: $0)
-            let headerViewModel = DataHeaderFooterViewModel(
-                data: dataStructure.footerTitles[$0],
-                sortType: sortTypeForFooter
-            )
-            return headerViewModel
-        }
-        
-        //2. Create the view models
-        //let viewModels: DataTableViewModelContent =
-        self.rowViewModels = dataStructure.data.map { currentRowData in
-            return currentRowData.map {
-                return DataCellViewModel(data: $0.dataTableValue, reuseIdentifier: $0.reuseIdentifier, linkViewController: $0.linkViewControllerType, dataCellDelegate: $0.delegate, searchKey: $0.searchKey)
-            }
-        }
-        self.paginationViewModel = PaginationHeaderViewModel()
-        self.menuLengthViewModel = MenuLengthHeaderViewModel()
-        //        self.bindViewToModels()
-    }
-}
-
-extension SwiftDataTable: UICollectionViewDataSource, UICollectionViewDelegate {
-    public func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        if let dataSource = self.dataSource {
-            return dataSource.numberOfColumns(in: self)
-        }
-        return self.dataStructure.columnCount
-    }
-    
-    public func numberOfSections(in collectionView: UICollectionView) -> Int {
-        //if let dataSource = self.dataSource {
-        //    return dataSource.numberOfRows(in: self)
-        //}
-        return self.numberOfRows()
-    }
-    
-    public func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        let cellViewModel = self.rowModel(at: indexPath)
-        
-        guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: cellViewModel.reuseIdentifer, for: indexPath) as? DataCell else {
-            fatalError("error in collection view cell")
-        }
-        cell.configure(cellViewModel)
-        return cell
-    }
-    
-    public func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
-        let numberOfItemsInLine: CGFloat = 6
-        
-        let inset = UIEdgeInsets.zero
-        
-        //        let inset = self.collectionView(collectionView, layout: collectionViewLayout, insetForSectionAt: indexPath.section)
-        let minimumInteritemSpacing: CGFloat = 0
-        let contentwidth: CGFloat = minimumInteritemSpacing * (numberOfItemsInLine - 1)
-        let itemWidth = (collectionView.frame.width - inset.left - inset.right - contentwidth) / numberOfItemsInLine
-        let itemHeight: CGFloat = 100
-        
-        return CGSize(width: itemWidth, height: itemHeight)
-        
-    }
-    public func collectionView(_ collectionView: UICollectionView, willDisplaySupplementaryView view: UICollectionReusableView, forElementKind elementKind: String, at indexPath: IndexPath) {
-        let kind = SupplementaryViewType(kind: elementKind)
-        switch kind {
-        case .paginationHeader:
-            view.backgroundColor = UIColor.darkGray
-        default:
-            if #available(iOS 13.0, *) {
-                view.backgroundColor = .systemBackground
-            } else {
-                view.backgroundColor = UIColor.white
-            }
-        }
-    }
-    public func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
-        let cellViewModel = self.rowModel(at: indexPath)
-        
-        if cellViewModel.highlighted {
-            cell.contentView.backgroundColor = delegate?.dataTable?(self, highlightedColorForRowIndex: indexPath.item) ?? self.options.highlightedAlternatingRowColors[indexPath.section % self.options.highlightedAlternatingRowColors.count]
-        }
-        else {
-            cell.contentView.backgroundColor = delegate?.dataTable?(self, unhighlightedColorForRowIndex: indexPath.item) ?? self.options.unhighlightedAlternatingRowColors[indexPath.section % self.options.unhighlightedAlternatingRowColors.count]
-        }
-    }
-    
-    public func collectionView(_ collectionView: UICollectionView, viewForSupplementaryElementOfKind kind: String, at indexPath: IndexPath) -> UICollectionReusableView {
-        let elementKind = SupplementaryViewType(kind: kind)
-        let viewModel: CollectionViewSupplementaryElementRepresentable
-        switch elementKind {
-        case .searchHeader: viewModel = self.menuLengthViewModel
-        case .columnHeader: viewModel = self.headerViewModels[indexPath.index]
-        case .footerHeader: viewModel = self.footerViewModels[indexPath.index]
-        case .paginationHeader: viewModel = self.paginationViewModel
-        }
-        return viewModel.dequeueView(collectionView: collectionView, viewForSupplementaryElementOfKind: kind, for: indexPath)
-    }
-    public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        delegate?.didSelectItem?(self, indexPath: indexPath)
-    }
-    
-    public func collectionView(_ collectionView: UICollectionView, didDeselectItemAt indexPath: IndexPath) {
-        delegate?.didDeselectItem?(self, indexPath: indexPath)
-    }
-}
 
 //MARK: - Swift Data Table Delegate
 extension SwiftDataTable {
@@ -402,40 +348,6 @@ extension SwiftDataTable {
     }
     func disableScrollViewBottomBounce() -> Bool {
         return false
-    }
-}
-
-//MARK: - UICollection View Delegate
-extension SwiftDataTable: UIScrollViewDelegate {
-    public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
-        if(self.searchBar.isFirstResponder){
-            self.searchBar.resignFirstResponder()
-        }
-    }
-    
-    public func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        if self.disableScrollViewLeftBounce() {
-            if (self.collectionView.contentOffset.x <= 0) {
-                self.collectionView.contentOffset.x = 0
-            }
-        }
-        if self.disableScrollViewTopBounce() {
-            if (self.collectionView.contentOffset.y <= 0) {
-                self.collectionView.contentOffset.y = 0
-            }
-        }
-        if self.disableScrollViewRightBounce(){
-            let maxX = self.collectionView.contentSize.width-self.collectionView.frame.width
-            if (self.collectionView.contentOffset.x >= maxX){
-                self.collectionView.contentOffset.x = max(maxX-1, 0)
-            }
-        }
-        if self.disableScrollViewBottomBounce(){
-            let maxY = self.collectionView.contentSize.height-self.collectionView.frame.height
-            if (self.collectionView.contentOffset.y >= maxY){
-                self.collectionView.contentOffset.y = maxY-1
-            }
-        }
     }
 }
 
@@ -547,9 +459,11 @@ extension SwiftDataTable {
     func shouldShowSearchSection() -> Bool {
         return self.delegate?.shouldShowSearchSection?(in: self) ?? self.options.shouldShowSearchSection
     }
+    
     func shouldShowFooterSection() -> Bool {
         return self.delegate?.shouldShowSearchSection?(in: self) ?? self.options.shouldShowFooter
     }
+    
     func shouldShowPaginationSection() -> Bool {
         return false
     }
@@ -620,117 +534,7 @@ extension SwiftDataTable {
     func shouldSupportRightToLeftInterfaceDirection() -> Bool {
         return delegate?.shouldSupportRightToLeftInterfaceDirection?(in: self) ?? self.options.shouldSupportRightToLeftInterfaceDirection
     }
-}
-
-//MARK: - Search Bar Delegate
-extension SwiftDataTable: UISearchBarDelegate {
-    public func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
-        self.executeSearch(searchText)
-    }
     
-    public func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
-        searchBar.resignFirstResponder()
-    }
-    public func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
-        searchBar.setShowsCancelButton(false, animated: true)
-        searchBar.resignFirstResponder()
-    }
-    
-    public func searchBarTextDidBeginEditing(_ searchBar: UISearchBar) {
-        searchBar.setShowsCancelButton(true, animated: true)
-    }
-    
-    public func searchBarTextDidEndEditing(_ searchBar: UISearchBar) {
-        searchBar.setShowsCancelButton(false, animated: true)
-    }
-    
-    //TODO: Use Regular expression isntead
-    private func filteredResults(with needle: String, on originalArray: DataTableViewModelContent) -> DataTableViewModelContent {
-        var filteredSet = DataTableViewModelContent()
-        let needle = needle.lowercased()
-        Array(0..<originalArray.count).forEach{
-            let row = originalArray[$0]
-            //Add some sort of index array so we use that to iterate through the columns
-            //The idnex array will be defined by the column definition inside the configuration object provided by the user
-            //Index array might look like this [1, 3, 4]. Which means only those columns should be searched into
-            for item in row {
-                let stringData: String = item.data.stringRepresentation.lowercased()
-                if stringData.lowercased().range(of: needle) != nil{
-                    filteredSet.append(row)
-                    //Stop searching through the rest of the columns in the same row and break
-                    break;
-                }
-            }
-        }
-        
-        return filteredSet
-    }
-    
-    
-    fileprivate func executeSearch(_ needle: String){
-        let oldFilteredRowViewModels = self.searchRowViewModels!
-        
-        if needle.isEmpty {
-            //DONT DELETE ORIGINAL CACHE FOR LAYOUTATTRIBUTES
-            //MAYBE KEEP TWO COPIES.. ONE FOR SEARCH AND ONE FOR DEFAULT
-            self.searchRowViewModels = self.rowViewModels
-        }
-        else {
-            self.searchRowViewModels = self.filteredResults(with: needle, on: self.rowViewModels)
-            //            print("needle: \(needle), rows found: \(self.searchRowViewModels!.count)")
-        }
-        self.layout?.clearLayoutCache()
-        //        self.collectionView.scrollToItem(at: IndexPath(0), at: UICollectionViewScrollPosition.top, animated: false)
-        //So the header view doesn't flash when user is at the bottom of the collectionview and a search result is returned that doesn't feel the screen.
-        self.collectionView.resetScrollPositionToTop()
-        self.differenceSorter(oldRows: oldFilteredRowViewModels, filteredRows: self.searchRowViewModels)
-        
-    }
-    
-    private func differenceSorter(
-        oldRows: DataTableViewModelContent,
-        filteredRows: DataTableViewModelContent,
-        animations: Bool = false,
-        completion: ((Bool) -> Void)? = nil) {
-        
-        UIView.setAnimationsEnabled(animations)
-                
-        collectionView.performBatchUpdates {
-            //finding the differences
-            
-            //The currently displayed rows - in this case named old rows - is scanned over.. deleting any entries that are not existing in the newly created filtered list.
-            for (oldIndex, oldRowViewModel) in oldRows.enumerated() {
-                let index = self.searchRowViewModels.firstIndex { rowViewModel in
-                    return oldRowViewModel == rowViewModel
-                }
-                
-                if index == nil {
-                    self.collectionView.deleteSections([oldIndex])
-                }
-            }
-            
-            //Iterates over the new search results and compares them with the current result set displayed - in this case name old - inserting any entries that are not existant in the currently displayed result set
-            for (currentIndex, currentRolwViewModel) in filteredRows.enumerated() {
-                let oldIndex = oldRows.firstIndex { oldRowViewModel in
-                    return currentRolwViewModel == oldRowViewModel
-                }
-                
-                if oldIndex == nil {
-                    self.collectionView.insertSections([currentIndex])
-                }
-            }
-        } completion: { finished in
-            self.collectionView.reloadItems(at: self.collectionView.indexPathsForVisibleItems)
-            if animations == false {
-                UIView.setAnimationsEnabled(true)
-            }
-            completion?(finished)
-        }
-    }
-}
-
-
-extension SwiftDataTable {
     func set(options: DataTableConfiguration? = nil){
         self.layout = SwiftDataTableLayout(dataTable: self)
         self.rowViewModels = DataTableViewModelContent()

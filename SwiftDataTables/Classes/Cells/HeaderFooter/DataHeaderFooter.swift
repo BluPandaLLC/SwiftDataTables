@@ -8,7 +8,7 @@
 
 import UIKit
 
-class DataHeaderFooter: UICollectionReusableView {
+open class DataHeaderFooter: UICollectionReusableView {
 
     //MARK: - Properties
     private enum Properties {
@@ -19,11 +19,10 @@ class DataHeaderFooter: UICollectionReusableView {
         static let labelWidthConstant: CGFloat = 20
         static let imageViewWidthConstant: CGFloat = 20
         static let imageViewAspectRatio: CGFloat = 0.75
-
-        
     }
-    let titleLabel = UILabel()
-    let sortingImageView = UIImageView()
+    
+    public let titleLabel = UILabel()
+    public let sortingImageView = UIImageView()
 
 
     //MARK: - Events
@@ -35,17 +34,17 @@ class DataHeaderFooter: UICollectionReusableView {
         setup()
     }
 
-    required init?(coder: NSCoder) {
+    required public init?(coder: NSCoder) {
         super.init(coder: coder)
         setup()
     }
     
-    private func setup() {
+    open func setup() {
         setupViews()
         setupConstraints()
     }
     
-    func setupViews() {
+    open func setupViews() {
         titleLabel.adjustsFontSizeToFitWidth = true
         titleLabel.font = UIFont.systemFont(ofSize: UIFont.labelFontSize, weight: .heavy)
         addSubview(titleLabel)
@@ -54,7 +53,7 @@ class DataHeaderFooter: UICollectionReusableView {
         addGestureRecognizer(tapGesture)
     }
     
-    func setupConstraints() {
+    open func setupConstraints() {
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         sortingImageView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
@@ -70,13 +69,14 @@ class DataHeaderFooter: UICollectionReusableView {
         ])
     }
     
-    func configure(viewModel: DataHeaderFooterViewModel) {
+    open func configure(viewModel: DataHeaderFooterViewModel) {
         self.titleLabel.text = viewModel.data
         self.sortingImageView.image = viewModel.imageForSortingElement
         self.sortingImageView.tintColor = viewModel.tintColorForSortingElement
         self.backgroundColor = .white
     }
-    @objc func didTapView(){
+    
+    @objc open func didTapView(){
         self.didTapEvent?()
     }
 }

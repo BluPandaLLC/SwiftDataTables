@@ -13,9 +13,11 @@ import UIKit
 public class DataHeaderFooterViewModel: DataTableSortable {
 
     //MARK: - Properties
-    let data: String
+    public let data: String
     var indexPath: IndexPath! // Questionable
     var dataTable: SwiftDataTable!
+    public var reuseIdentifier: String? = nil
+    public var headerFooterCell: AnyClass? = nil
     
     public var sortType: DataTableSortType
     
@@ -31,7 +33,8 @@ public class DataHeaderFooterViewModel: DataTableSortable {
             return "column-sort-descending"
         }
     }
-    var imageForSortingElement: UIImage? {
+    
+    public var imageForSortingElement: UIImage? {
         guard let imageName = self.imageStringForSortingElement else {
             return nil
         }
@@ -46,16 +49,23 @@ public class DataHeaderFooterViewModel: DataTableSortable {
         }
         return image
     }
-    var tintColorForSortingElement: UIColor? {
+    
+    public var tintColorForSortingElement: UIColor? {
         return (dataTable != nil && sortType != .unspecified) ? dataTable.options.sortArrowTintColor : UIColor.gray
     }
     
     //MARK: - Events
     
     //MARK: - Lifecycle
-    init(data: String, sortType: DataTableSortType){
+    init(data: String, sortType: DataTableSortType? = .unspecified, reuseIdentifier rid: String? = nil, headerFooterCell hfc: AnyClass? = nil){
         self.data = data
-        self.sortType = sortType
+        self.sortType = sortType!
+        if let r = rid {
+            reuseIdentifier = r
+        }
+        if let c = hfc {
+            headerFooterCell = c
+        }
     }
     
     public func configure(dataTable: SwiftDataTable, columnIndex: Int){
@@ -66,16 +76,13 @@ public class DataHeaderFooterViewModel: DataTableSortable {
 
 //MARK: - Header View Representable
 extension DataHeaderFooterViewModel: CollectionViewSupplementaryElementRepresentable {
-    static func registerHeaderFooterViews(collectionView: UICollectionView) {
-        let identifier = String(describing: DataHeaderFooter.self)
-        let headerNib = UINib(nibName: identifier, bundle: nil)
-        collectionView.register(headerNib, forCellWithReuseIdentifier: identifier)
-    }
-    
     func dequeueView(collectionView: UICollectionView, viewForSupplementaryElementOfKind kind: String, for indexPath: IndexPath) -> UICollectionReusableView {
-        let identifier = String(describing: DataHeaderFooter.self)
+        // Needs to dequeue a custom header/footer cell
+        if reuseIdentifier == nil {
+            reuseIdentifier = String(describing: DataHeaderFooter.self)
+        }
         guard
-            let headerView = collectionView.dequeueReusableSupplementaryView(ofKind: kind, withReuseIdentifier: identifier, for: indexPath) as? DataHeaderFooter
+            let headerView = collectionView.dequeueReusableSupplementaryView(ofKind: kind, withReuseIdentifier: reuseIdentifier!, for: indexPath) as? DataHeaderFooter
             else {
                 return UICollectionReusableView()
         }

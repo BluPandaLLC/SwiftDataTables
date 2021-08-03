@@ -9,6 +9,8 @@
 import Foundation
 import UIKit
 
+
+
 //struct DataTableColumnModel {
 //    
 //}
@@ -32,21 +34,29 @@ public struct DataStructureModel {
     var headerTitles = [String]()
     var footerTitles = [String]()
     var shouldFootersShowSortingElement: Bool = false
-    
+    /// Header/footer cells
+    var headerCells: [AnyClass]
+    var footerCells: [AnyClass]
+
     private var columnAverageContentLength = [Float]()
     
     //MARK: - Lifecycle
     init() {
-        self.init(data: DataTableContent(), columnWidths: [CGFloat](), headerTitles: [String]())
+        self.init(data: DataTableContent(), columnWidths: [CGFloat](), headerTitles: [String](), footerTitles: [String]())
     }
     
     init(data: DataTableContent,
-         columnWidths: [CGFloat],
-         headerTitles: [String],
-         shouldMakeTitlesFitInColumn: Bool = true,
-         shouldDisplayFooterHeaders: Bool = true) {
-        self.columnWidths = columnWidths
-        self.headerTitles = headerTitles
+         columnWidths cw: [CGFloat],
+         headerTitles ht: [String],
+         footerTitles ft: [String],
+         headerCells hc: [AnyClass] = [AnyClass](),
+         footerCells fc: [AnyClass] = [AnyClass](),
+         shouldMakeTitlesFitInColumn: Bool = true) {
+        columnWidths = cw
+        headerTitles = ht
+        footerTitles = ft
+        headerCells = hc
+        footerCells = fc
         
         let unfilteredData = data
         let sanitisedData = unfilteredData.filter({ currentRowData in
@@ -58,15 +68,10 @@ public struct DataStructureModel {
         
         self.shouldFitTitles = shouldMakeTitlesFitInColumn
         self.columnAverageContentLength = self.processColumnDataAverages(data: self.data)
-        
-        if shouldDisplayFooterHeaders {
-            self.footerTitles = headerTitles
-        }
     }
     
-    
     public func averageColumnDataLengthTotal() -> Float {
-        return Array(0..<self.headerTitles.count).reduce(0){ $0 + self.averageDataLengthForColumn(index: $1) }
+        return Array(0..<(headerTitles + footerTitles).count).reduce(0){ $0 + self.averageDataLengthForColumn(index: $1) }
     }
     
     public func averageDataLengthForColumn(index: Int) -> Float {
@@ -85,7 +90,6 @@ public struct DataStructureModel {
             let averageForCurrentColumn = Array(0..<data.count).reduce(0) {
                 let dataValue: DataTableValue = data[$1][column]
                 return $0 + Int(dataValue.widthOfString.rounded(.up))
-//                return $0 + Int(dataValue.dataTableValue.stringRepresentation.widthOfString(usingFont: UIFont.systemFont(ofSize: UIFont.labelFontSize)).rounded(.up))
             }
             columnContentAverages.append((data.count == 0) ? 1 : Float(averageForCurrentColumn) / Float(data.count))
         }
@@ -108,3 +112,4 @@ public struct DataStructureModel {
         return .hidden
     }
 }
+

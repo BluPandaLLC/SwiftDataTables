@@ -10,7 +10,6 @@ import UIKit
 import os.log
 
 public protocol DataCellDelegate {
-    func didTap(forVC vc: UIViewController, searchKey key: String?)
     func didTap(dataCellViewModel dcvm: DataCellViewModel)
 }
 
@@ -52,6 +51,5 @@ open class DataCell: UICollectionViewCell {
     open func configure(_ viewModel: DataCellViewModel) {
         os_log(.default, log: Log.osLog, "string: %@", viewModel.data.stringRepresentation)
         self.dataLabel.text = viewModel.data.stringRepresentation
-//        self.contentView.backgroundColor = .white
     }
  }

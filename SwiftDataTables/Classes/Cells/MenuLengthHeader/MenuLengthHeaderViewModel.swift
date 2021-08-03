@@ -15,14 +15,7 @@ class MenuLengthHeaderViewModel: NSObject {
 }
 
 extension MenuLengthHeaderViewModel: CollectionViewSupplementaryElementRepresentable {
-    static func registerHeaderFooterViews(collectionView: UICollectionView) {
-        let identifier = String(describing: MenuLengthHeader.self)
-        let headerNib = UINib(nibName: identifier, bundle: nil)
-        collectionView.register(headerNib, forCellWithReuseIdentifier: identifier)
-    }
-    
     func dequeueView(collectionView: UICollectionView, viewForSupplementaryElementOfKind kind: String, for indexPath: IndexPath) -> UICollectionReusableView {
-        
         let identifier = String(describing: MenuLengthHeader.self)
         guard
             let headerView = collectionView.dequeueReusableSupplementaryView(
