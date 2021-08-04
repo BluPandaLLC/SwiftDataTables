@@ -23,7 +23,7 @@ open class DataCell: UICollectionViewCell {
         public static let widthConstant: CGFloat = 20
     }
     
-    public let dataLabel = UILabel()
+    public var dataLabel = UILabel()
     public var delegate: DataCellDelegate?
     
     //MARK: - Lifecycle

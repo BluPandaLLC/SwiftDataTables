@@ -21,7 +21,7 @@ open class DataHeaderFooter: UICollectionReusableView {
         static let imageViewAspectRatio: CGFloat = 0.75
     }
     
-    public let titleLabel = UILabel()
+    public var titleLabel = UILabel()
     public let sortingImageView = UIImageView()
 
 
