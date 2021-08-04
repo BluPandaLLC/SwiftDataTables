@@ -20,34 +20,18 @@ public class DataHeaderFooterViewModel: DataTableSortable {
     public var headerFooterCell: AnyClass? = nil
     
     public var sortType: DataTableSortType
-    
-    var imageStringForSortingElement: String? {
-        switch self.sortType {
+
+    public var imageForSortingElement: UIImage? {
+        switch sortType {
         case .hidden:
             return nil
         case .unspecified:
-            return "column-sort-unspecified"
+            return SortTypeImages.shared.unspecified
         case .ascending:
-            return "column-sort-ascending"
+            return SortTypeImages.shared.ascending
         case .descending:
-            return "column-sort-descending"
+            return SortTypeImages.shared.descending
         }
-    }
-    
-    public var imageForSortingElement: UIImage? {
-        guard let imageName = self.imageStringForSortingElement else {
-            return nil
-        }
-        let bundle = Bundle(for: DataHeaderFooter.self)
-        guard
-            let url = bundle.url(forResource: "SwiftDataTables", withExtension: "bundle"),
-            let imageBundle = Bundle(url: url),
-            let imagePath = imageBundle.path(forResource: imageName, ofType: "png"),
-            let image = UIImage(contentsOfFile: imagePath)?.withRenderingMode(.alwaysTemplate)
-            else {
-            return nil
-        }
-        return image
     }
     
     public var tintColorForSortingElement: UIColor? {

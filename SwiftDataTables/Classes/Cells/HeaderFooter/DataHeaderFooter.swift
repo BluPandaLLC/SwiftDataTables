@@ -18,7 +18,7 @@ open class DataHeaderFooter: UICollectionReusableView {
         static let imageViewHorizontalMargin: CGFloat = 5
         static let labelWidthConstant: CGFloat = 20
         static let imageViewWidthConstant: CGFloat = 20
-        static let imageViewAspectRatio: CGFloat = 0.75
+        static let imageViewAspectRatio: CGFloat = 1.0
     }
     
     public var titleLabel = UILabel()
@@ -64,7 +64,7 @@ open class DataHeaderFooter: UICollectionReusableView {
             sortingImageView.widthAnchor.constraint(equalToConstant: Properties.imageViewWidthConstant),
             sortingImageView.widthAnchor.constraint(equalTo: sortingImageView.heightAnchor, multiplier: Properties.imageViewAspectRatio),
             sortingImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            sortingImageView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: Properties.imageViewHorizontalMargin),
+            sortingImageView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Properties.imageViewHorizontalMargin),
             sortingImageView.leadingAnchor.constraint(equalTo: titleLabel.trailingAnchor, constant: Properties.separator),
         ])
     }
